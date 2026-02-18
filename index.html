@@ -1,59 +1,69 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Karen Alert System 🚨</title>
+  <title>Karen Radar 🚨</title>
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
   <style>
-    body { font-family: sans-serif; text-align:center; padding: 20px; background-color: #fefefe; }
-    #log { max-width: 600px; margin: 20px auto; text-align:left; border-top: 1px solid #ccc; padding-top: 10px; }
-    .entry { margin-bottom: 10px; padding:5px; border-bottom:1px dotted #aaa; }
-    .entry.karen { background-color: #ffe6e6; }
+    body { margin:0; font-family:sans-serif; }
+    #map { height:100vh; }
+    .leaflet-popup-content { font-family:sans-serif; }
   </style>
 </head>
 <body>
-  <h1>Karen Alert System 🚨</h1>
-  <p>Monitoring <b>1062 Cheshire Ln, Houston, TX 77018</b> for 311 complaints…</p>
-  <div id="log"></div>
+  <div id="map"></div>
 
   <script>
-    // Houston Open Data API for 311 Service Requests
+    // Initialize map centered on Houston
+    const map = L.map('map').setView([29.7604, -95.3698], 14);
+
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Open Data API URL filtering for your address
     const apiURL = "https://data.houstontx.gov/resource/7x3i-zuj1.json?address=1062 Cheshire Ln";
 
-    const logDiv = document.getElementById('log');
+    // Keep track of seen reports
     const seen = new Set();
+
+    // Marker icon for dramatic effect
+    const karenIcon = L.icon({
+      iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Red_circle.svg/120px-Red_circle.svg.png',
+      iconSize: [20, 20]
+    });
 
     function checkForKarens() {
       fetch(apiURL)
         .then(res => res.json())
         .then(data => {
           data.forEach(f => {
-            const id = f.service_request_id; // Unique ID from dataset
-
+            const id = f.service_request_id;
             if (!seen.has(id)) {
               seen.add(id);
 
-              // Pop-up alert
-              alert("🚨 KAREN ALERT! Someone snitched on 1062 Cheshire Ln 🚨");
+              // Add pin to map
+              if (f.latitude && f.longitude) {
+                const marker = L.marker([f.latitude, f.longitude], {icon: karenIcon}).addTo(map);
+                marker.bindPopup(`
+                  <b>🚨 ${f.sr_type || "Unknown Complaint"} 🚨</b><br>
+                  Status: ${f.status || "Unknown"}<br>
+                  Reported: ${f.created_date || ""}
+                `).openPopup();
+              }
 
-              // Add entry to log
-              const entry = document.createElement('div');
-              entry.className = "entry karen";
-              entry.innerHTML = `
-                <b>${f.sr_type || "Unknown Complaint"}</b><br>
-                Status: ${f.status || "Unknown"}<br>
-                Address: ${f.address || ""}<br>
-                Reported: ${f.created_date || ""}
-              `;
-              logDiv.prepend(entry);
-
-              // Optional: play funny alarm sound
-              // new Audio('https://www.myinstants.com/media/sounds/alarm.mp3').play();
+              // Optional alert
+              alert("🚨 KAREN ALERT! New complaint for 1062 Cheshire Ln 🚨");
             }
           });
         })
         .catch(err => console.error("API Error:", err));
     }
 
-    // Check every 30 seconds
+    // Poll every 30 seconds
     setInterval(checkForKarens, 30000);
     checkForKarens();
   </script>
